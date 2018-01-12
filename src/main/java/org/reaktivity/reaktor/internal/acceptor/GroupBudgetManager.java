@@ -19,14 +19,14 @@ import org.agrona.collections.Long2LongHashMap;
 
 import java.util.function.IntUnaryOperator;
 
-class GroupBudgetManager
+public class GroupBudgetManager
 {
     private static final IntUnaryOperator NOOP_CLAIM = IntUnaryOperator.identity();
     private static final IntUnaryOperator NOOP_RELEASE = groupId -> Integer.MAX_VALUE;
 
     private final Long2LongHashMap budgets;
 
-    GroupBudgetManager()
+    public GroupBudgetManager()
     {
         budgets = new Long2LongHashMap(0L);
     }
@@ -51,9 +51,21 @@ class GroupBudgetManager
         long groupId,
         long bytes)
     {
-        long budget = budgets.get(groupId);
-        long claimed = Math.min(budget, bytes);
-        budgets.computeIfPresent(groupId, (k, v) -> budget - claimed);
+        final long budget = budgets.get(groupId);
+        final long claimed = Math.min(budget, bytes);
+        final long newBudget = budget - claimed;
+        if (newBudget == 0)
+        {
+            budgets.remove(groupId);
+        }
+        else
+        {
+            budgets.put(groupId, newBudget);
+        }
+        if (claimed > 0)
+        {
+            System.out.printf("groupId=%d claimed=%d budgets=%s\n", groupId, claimed, budgets);
+        }
         return (int) claimed;
     }
 
@@ -61,9 +73,18 @@ class GroupBudgetManager
         long groupId,
         long bytes)
     {
-        long budget = budgets.get(groupId);
-        long newBudget = budget + bytes;
-        budgets.computeIfPresent(groupId, (k, v) -> newBudget);
+        final long budget = budgets.get(groupId);
+        final long newBudget = budget + bytes;
+        if (newBudget > 0L)
+        {
+            budgets.put(groupId, newBudget);
+        }
+
+        if (bytes > 0)
+        {
+            System.out.printf("groupId=%d released=%d budgets=%s\n", groupId, bytes, budgets);
+        }
+
         return (int) newBudget;
     }
 }

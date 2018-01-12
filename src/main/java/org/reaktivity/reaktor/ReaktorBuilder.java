@@ -38,6 +38,7 @@ import org.reaktivity.nukleus.buffer.BufferPool;
 import org.reaktivity.reaktor.internal.ControllerBuilderImpl;
 import org.reaktivity.reaktor.internal.NukleusBuilderImpl;
 import org.reaktivity.reaktor.internal.ReaktorConfiguration;
+import org.reaktivity.reaktor.internal.acceptor.GroupBudgetManager;
 import org.reaktivity.reaktor.internal.buffer.DefaultBufferPool;
 
 public class ReaktorBuilder
@@ -109,13 +110,15 @@ public class ReaktorBuilder
         final int bufferSlotCapacity = config.bufferSlotCapacity();
         final DefaultBufferPool bufferPool = new DefaultBufferPool(bufferPoolCapacity, bufferSlotCapacity);
         Supplier<BufferPool> supplyBufferPool = () -> bufferPool;
+        final GroupBudgetManager groupBudgetManager = new GroupBudgetManager();
+        Supplier<GroupBudgetManager> supplyGroupBudgetManager = () -> groupBudgetManager;
 
         Nukleus[] nuklei = new Nukleus[0];
         for (String name : nukleusFactory.names())
         {
             if (nukleusMatcher.test(name))
             {
-                NukleusBuilder builder = new NukleusBuilderImpl(config, name, supplyBufferPool);
+                NukleusBuilder builder = new NukleusBuilderImpl(config, name, supplyBufferPool, supplyGroupBudgetManager);
                 Nukleus nukleus = nukleusFactory.create(name, config, builder);
                 nuklei = ArrayUtil.add(nuklei, nukleus);
             }

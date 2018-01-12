@@ -34,6 +34,7 @@ import org.reaktivity.nukleus.function.MessagePredicate;
 import org.reaktivity.nukleus.route.RouteKind;
 import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
 import org.reaktivity.reaktor.internal.acceptor.Acceptor;
+import org.reaktivity.reaktor.internal.acceptor.GroupBudgetManager;
 import org.reaktivity.reaktor.internal.conductor.Conductor;
 import org.reaktivity.reaktor.internal.router.Router;
 import org.reaktivity.reaktor.internal.types.control.Role;
@@ -46,6 +47,7 @@ public class NukleusBuilderImpl implements NukleusBuilder
     private final ReaktorConfiguration config;
     private final String name;
     private final Supplier<BufferPool> supplyBufferPool;
+    private final Supplier<GroupBudgetManager> supplyGroupBudgetManager;
     private final Int2ObjectHashMap<CommandHandler> commandHandlersByTypeId;
     private final Map<Role, MessagePredicate> routeHandlers;
     private final Map<RouteKind, StreamFactoryBuilder> streamFactoryBuilders;
@@ -54,11 +56,13 @@ public class NukleusBuilderImpl implements NukleusBuilder
     public NukleusBuilderImpl(
         ReaktorConfiguration config,
         String name,
-        Supplier<BufferPool> supplyBufferPool)
+        Supplier<BufferPool> supplyBufferPool,
+        Supplier<GroupBudgetManager> supplyGroupBudgetManager)
     {
         this.config = config;
         this.name = name;
         this.supplyBufferPool = supplyBufferPool;
+        this.supplyGroupBudgetManager = supplyGroupBudgetManager;
         this.commandHandlersByTypeId = new Int2ObjectHashMap<>();
         this.routeHandlers = new EnumMap<>(Role.class);
         this.streamFactoryBuilders = new EnumMap<>(RouteKind.class);
@@ -148,6 +152,7 @@ public class NukleusBuilderImpl implements NukleusBuilder
         acceptor.setConductor(conductor);
         acceptor.setRouter(router);
         acceptor.setBufferPoolSupplier(supplyBufferPool);
+        acceptor.setGroupBudgetManager(supplyGroupBudgetManager.get());
         acceptor.setStreamFactoryBuilderSupplier(streamFactoryBuilders::get);
         acceptor.setAbortTypeId(abortTypeId);
         acceptor.setRouteHandlerSupplier(routeHandlers::get);

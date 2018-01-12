@@ -56,7 +56,7 @@ public final class Acceptor extends Nukleus.Composite
     private final Map<String, Acceptable> acceptables;
     private final AtomicCounter routeRefs;
     private final MutableDirectBuffer routeBuf;
-    private final GroupBudgetManager groupBudgetManager;
+    private GroupBudgetManager groupBudgetManager;
 
     private Conductor conductor;
     private Router router;
@@ -78,7 +78,6 @@ public final class Acceptor extends Nukleus.Composite
         this.correlations  = new AtomicLong();
         int groupId = 0;
         this.supplyGroupId = () -> groupId + 1;
-        this.groupBudgetManager = new GroupBudgetManager();
     }
 
     public void setConductor(
@@ -97,6 +96,12 @@ public final class Acceptor extends Nukleus.Composite
         Supplier<BufferPool> supplyBufferPool)
     {
         this.supplyBufferPool = supplyBufferPool;
+    }
+
+    public void setGroupBudgetManager(
+        GroupBudgetManager groupBudgetManager)
+    {
+        this.groupBudgetManager = groupBudgetManager;
     }
 
     public void setStreamFactoryBuilderSupplier(
