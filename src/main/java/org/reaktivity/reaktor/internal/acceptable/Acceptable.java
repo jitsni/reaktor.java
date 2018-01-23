@@ -163,6 +163,13 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
     }
 
     @Override
+    public MessagePredicate supplyTryTarget(
+        String targetName)
+    {
+        return supplyTargetInternal(targetName).writeTryHandler();
+    }
+
+    @Override
     public void setThrottle(
         String targetName,
         long streamId,

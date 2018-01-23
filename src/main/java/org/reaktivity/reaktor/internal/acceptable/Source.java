@@ -82,11 +82,16 @@ public final class Source implements Nukleus
         this.supplyStreamFactory = supplyStreamFactory;
         this.abortTypeId = abortTypeId;
         this.streamsDescriptor = layout::toString;
-        this.streamsBuffer = layout.streamsBuffer()::read;
+        this.streamsBuffer = this::readOne;
         this.throttleBuffer = layout.throttleBuffer()::write;
         this.streams = streams;
         this.readHandler = this::handleRead;
         this.writeHandler = this::handleWrite;
+    }
+
+    private int readOne(MessageHandler handler)
+    {
+        return layout.streamsBuffer().read(handler, 1);
     }
 
     @Override

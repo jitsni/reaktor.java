@@ -39,16 +39,17 @@ public final class Target implements Nukleus
     private final FrameFW frameRO = new FrameFW();
 
     private final String name;
-    private final AutoCloseable layout;
+    private final StreamsLayout layout;
     private final int abortTypeId;
     private final Long2ObjectHashMap<MessageConsumer> throttles;
     private final MessageHandler readHandler;
     private final MessageConsumer writeHandler;
+    private final MessagePredicate writeTryHandler;
 
     private ToIntFunction<MessageHandler> throttleBuffer;
     private MessagePredicate streamsBuffer;
 
-    public Target(
+    Target(
         String name,
         StreamsLayout layout,
         int abortTypeId)
@@ -57,10 +58,16 @@ public final class Target implements Nukleus
         this.layout = layout;
         this.abortTypeId = abortTypeId;
         this.streamsBuffer = layout.streamsBuffer()::write;
-        this.throttleBuffer = layout.throttleBuffer()::read;
+        this.throttleBuffer = this::readOne;
         this.throttles = new Long2ObjectHashMap<>();
         this.readHandler = this::handleRead;
         this.writeHandler = this::handleWrite;
+        this.writeTryHandler = this::handleTryWrite;
+    }
+
+    private int readOne(MessageHandler handler)
+    {
+        return layout.throttleBuffer().read(handler, 1);
     }
 
     @Override
@@ -99,39 +106,54 @@ public final class Target implements Nukleus
         return writeHandler;
     }
 
+    public MessagePredicate writeTryHandler()
+    {
+        return writeTryHandler;
+    }
+
+    private boolean handleTryWrite(
+            int msgTypeId,
+            DirectBuffer buffer,
+            int index,
+            int length)
+    {
+        boolean handled;
+
+        switch (msgTypeId)
+        {
+            case BeginFW.TYPE_ID:
+                handled = streamsBuffer.test(msgTypeId, buffer, index, length);
+                break;
+            case DataFW.TYPE_ID:
+                handled = streamsBuffer.test(msgTypeId, buffer, index, length);
+                break;
+            case EndFW.TYPE_ID:
+                handled = streamsBuffer.test(msgTypeId, buffer, index, length);
+
+                final FrameFW end = frameRO.wrap(buffer, index, index + length);
+                throttles.remove(end.streamId());
+                break;
+            case AbortFW.TYPE_ID:
+                handled = streamsBuffer.test(abortTypeId, buffer, index, length);
+
+                final FrameFW abort = frameRO.wrap(buffer, index, index + length);
+                throttles.remove(abort.streamId());
+                break;
+            default:
+                handled = true;
+                break;
+        }
+
+        return handled;
+    }
+
     private void handleWrite(
         int msgTypeId,
         DirectBuffer buffer,
         int index,
         int length)
     {
-        boolean handled;
-
-        switch (msgTypeId)
-        {
-        case BeginFW.TYPE_ID:
-            handled = streamsBuffer.test(msgTypeId, buffer, index, length);
-            break;
-        case DataFW.TYPE_ID:
-            handled = streamsBuffer.test(msgTypeId, buffer, index, length);
-            break;
-        case EndFW.TYPE_ID:
-            handled = streamsBuffer.test(msgTypeId, buffer, index, length);
-
-            final FrameFW end = frameRO.wrap(buffer, index, index + length);
-            throttles.remove(end.streamId());
-            break;
-        case AbortFW.TYPE_ID:
-            handled = streamsBuffer.test(abortTypeId, buffer, index, length);
-
-            final FrameFW abort = frameRO.wrap(buffer, index, index + length);
-            throttles.remove(abort.streamId());
-            break;
-        default:
-            handled = true;
-            break;
-        }
-
+        boolean handled = handleTryWrite(msgTypeId, buffer, index, length);
         if (!handled)
         {
             throw new IllegalStateException("Unable to write to streams buffer");
