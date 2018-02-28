@@ -27,6 +27,7 @@ import static org.mockito.Mockito.when;
 import static org.reaktivity.nukleus.route.RouteKind.SERVER;
 
 import java.util.function.Function;
+import java.util.function.IntUnaryOperator;
 import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
@@ -64,7 +65,7 @@ public class StreamsIT
             .addScriptRoot("route", "org/reaktivity/specification/nukleus/control/route")
             .addScriptRoot("streams", "org/reaktivity/specification/nukleus/streams");
 
-    private final TestRule timeout = new DisableOnDebug(new Timeout(5, SECONDS));
+    private final TestRule timeout = new DisableOnDebug(new Timeout(15, SECONDS));
 
     private final ReaktorRule reaktor = new ReaktorRule()
         .nukleus("example"::equals)
@@ -143,8 +144,10 @@ public class StreamsIT
         private ArgumentCaptor<RouteManager> router = forClass(RouteManager.class);
         private ArgumentCaptor<LongSupplier> supplyStreamId = forClass(LongSupplier.class);
         private ArgumentCaptor<LongSupplier> supplyGroupId = forClass(LongSupplier.class);
-        private ArgumentCaptor<LongFunction> groupBudgetClaimer = forClass(LongFunction.class);
-        private ArgumentCaptor<LongFunction> groupBudgetReleaser = forClass(LongFunction.class);
+        @SuppressWarnings("unchecked")
+        private ArgumentCaptor<LongFunction<IntUnaryOperator>> groupBudgetClaimer = forClass(LongFunction.class);
+        @SuppressWarnings("unchecked")
+        private ArgumentCaptor<LongFunction<IntUnaryOperator>> groupBudgetReleaser = forClass(LongFunction.class);
         private ArgumentCaptor<MutableDirectBuffer> writeBuffer = forClass(MutableDirectBuffer.class);
 
         private MessageConsumer newStream = mock(MessageConsumer.class);
@@ -173,6 +176,7 @@ public class StreamsIT
             when(serverStreamFactory.setRouteManager(router.capture())).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setWriteBuffer(writeBuffer.capture())).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setCounterSupplier(any(Function.class))).thenReturn(serverStreamFactory);
+            when(serverStreamFactory.setAccumulatorSupplier(any(Function.class))).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setBufferPoolSupplier(any(Supplier.class))).thenReturn(serverStreamFactory);
             when(serverStreamFactory.build()).thenReturn(streamFactory);
 
@@ -191,8 +195,10 @@ public class StreamsIT
                         public Object answer(
                             InvocationOnMock invocation) throws Throwable
                         {
+                            int offset = invocation.getArgument(2);
+                            int maxLimit = offset + (Integer) invocation.getArgument(3);
                             BeginFW begin = beginRO.wrap((DirectBuffer)invocation.getArgument(1),
-                                    invocation.getArgument(2), invocation.getArgument(3));
+                                    offset, maxLimit);
                             long sourceRef = begin.sourceRef();
                             long authorization = begin.authorization();
                             MessagePredicate filter = (m, b, i, l) ->
