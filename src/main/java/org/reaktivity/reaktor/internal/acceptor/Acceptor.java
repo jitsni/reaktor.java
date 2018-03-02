@@ -68,6 +68,7 @@ public final class Acceptor extends Nukleus.Composite
     private Function<Role, MessagePredicate> supplyRouteHandler;
     private Predicate<RouteKind> allowZeroRouteRef;
     private AtomicLong correlations;
+    private AtomicLong groups;
 
     public Acceptor(
         Context context)
@@ -77,8 +78,8 @@ public final class Acceptor extends Nukleus.Composite
         this.acceptables = new HashMap<>();
         this.routeBuf = new UnsafeBuffer(ByteBuffer.allocateDirect(context.maxControlCommandLength()));
         this.correlations  = new AtomicLong();
-        int groupId = 0;
-        this.supplyGroupId = () -> groupId + 1;
+        this.groups = new AtomicLong();
+        this.supplyGroupId = () -> groups.incrementAndGet();
     }
 
     public void setConductor(
