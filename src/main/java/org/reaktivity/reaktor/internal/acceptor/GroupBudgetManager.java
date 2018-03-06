@@ -62,10 +62,7 @@ public class GroupBudgetManager
         {
             budgets.put(groupId, newBudget);
         }
-        if (claimed > 0)
-        {
-            System.out.printf("groupId=%d claimed=%d budgets=%s\n", groupId, claimed, budgets);
-        }
+
         return (int) claimed;
     }
 
@@ -78,11 +75,6 @@ public class GroupBudgetManager
         if (newBudget > 0L)
         {
             budgets.put(groupId, newBudget);
-        }
-
-        if (bytes > 0)
-        {
-            System.out.printf("groupId=%d released=%d budgets=%s\n", groupId, bytes, budgets);
         }
 
         return (int) newBudget;
