@@ -62,6 +62,7 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
     private final Map<String, Target> targetsByName;
     private final Function<RouteKind, StreamFactory> supplyStreamFactory;
     private final int abortTypeId;
+    private final LongFunction<IntUnaryOperator> groupBudgetReleaser;
 
 
     public Acceptable(
@@ -83,6 +84,7 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
         this.streams = new Long2ObjectHashMap<>();
         this.sourcesByPartitionName = new HashMap<>();
         this.targetsByName = new HashMap<>();
+        this.groupBudgetReleaser = groupBudgetReleaser;
 
         final Map<RouteKind, StreamFactory> streamFactories = new EnumMap<>(RouteKind.class);
         final Function<String, LongSupplier> supplyCounter = name -> () -> context.counters().counter(name).increment() + 1;
@@ -185,7 +187,7 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
             .build();
 
         return include(new Source(context.name(), sourceName, partitionName, layout, writeBuffer, streams,
-                                  this::supplyTargetInternal, supplyStreamFactory, abortTypeId));
+                                  this::supplyTargetInternal, supplyStreamFactory, abortTypeId, groupBudgetReleaser));
     }
 
     private Target supplyTargetInternal(

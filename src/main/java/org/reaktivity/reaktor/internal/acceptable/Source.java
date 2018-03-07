@@ -18,6 +18,8 @@ package org.reaktivity.reaktor.internal.acceptable;
 import static org.agrona.LangUtil.rethrowUnchecked;
 
 import java.util.function.Function;
+import java.util.function.IntUnaryOperator;
+import java.util.function.LongFunction;
 import java.util.function.Supplier;
 import java.util.function.ToIntFunction;
 
@@ -45,6 +47,7 @@ public final class Source implements Nukleus
 {
     private final FrameFW frameRO = new FrameFW();
     private final BeginFW beginRO = new BeginFW();
+    private final DataFW dataRO = new DataFW();
 
     private final ResetFW.Builder resetRW = new ResetFW.Builder();
 
@@ -56,6 +59,7 @@ public final class Source implements Nukleus
     private final ToIntFunction<MessageHandler> streamsBuffer;
     private final Supplier<String> streamsDescriptor;
     private final Long2ObjectHashMap<MessageConsumer> streams;
+    private final LongFunction<IntUnaryOperator> groupBudgetReleaser;
     private final Function<RouteKind, StreamFactory> supplyStreamFactory;
     private final int abortTypeId;
     private final MessageHandler readHandler;
@@ -72,7 +76,8 @@ public final class Source implements Nukleus
         Long2ObjectHashMap<MessageConsumer> streams,
         Function<String, Target> supplyTarget,
         Function<RouteKind, StreamFactory> supplyStreamFactory,
-        int abortTypeId)
+        int abortTypeId,
+        LongFunction<IntUnaryOperator> groupBudgetReleaser)
     {
         this.nukleusName = nukleusName;
         this.sourceName = sourceName;
@@ -85,6 +90,7 @@ public final class Source implements Nukleus
         this.streamsBuffer = layout.streamsBuffer()::read;
         this.throttleBuffer = layout.throttleBuffer()::write;
         this.streams = streams;
+        this.groupBudgetReleaser = groupBudgetReleaser;
         this.readHandler = this::handleRead;
         this.writeHandler = this::handleWrite;
     }
@@ -196,6 +202,13 @@ public final class Source implements Nukleus
             }
             else
             {
+                if (msgTypeId == DataFW.TYPE_ID)
+                {
+                    DataFW data = dataRO.wrap(buffer, index, index + length);
+                    long groupId = data.groupId();
+                    int reserved = data.reserved();
+                    groupBudgetReleaser.apply(groupId).applyAsInt(reserved);
+                }
                 handleUnrecognized(msgTypeId, buffer, index, length);
             }
         }
