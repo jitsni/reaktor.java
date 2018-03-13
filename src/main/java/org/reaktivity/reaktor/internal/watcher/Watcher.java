@@ -106,9 +106,11 @@ public final class Watcher implements Nukleus
             }
             if (currentTime - beginTime > 60000)
             {
+                streamsKey.cancel();
+                streamsKey = null;
                 quietClose(service);
                 closed = true;
-                System.out.println("Shutting down WatchService");
+                System.out.println("Shutting down WatchService " + System.identityHashCode(service));
             }
 
         }
