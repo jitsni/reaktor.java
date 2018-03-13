@@ -19,6 +19,7 @@ import static java.nio.file.StandardWatchEventKinds.ENTRY_CREATE;
 import static java.nio.file.StandardWatchEventKinds.ENTRY_DELETE;
 import static java.nio.file.StandardWatchEventKinds.OVERFLOW;
 import static java.util.Arrays.stream;
+import static org.agrona.CloseHelper.quietClose;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
@@ -50,6 +51,9 @@ public final class Watcher implements Nukleus
     private Acceptor acceptor;
     private WatchKey streamsKey;
 
+    private boolean closed;
+    private long beginTime = -1;
+
     public Watcher(
         Context context)
     {
@@ -79,17 +83,34 @@ public final class Watcher implements Nukleus
     @Override
     public int process()
     {
-        registerIfNecessary();
-
         int workCount = 0;
 
-        WatchKey key = service.poll();
-        if (key != null && key.isValid())
+        if (!closed)
         {
-            List<WatchEvent<?>> events = key.pollEvents();
-            workCount += events.size();
-            events.forEach(handleEvent);
-            key.reset();
+            registerIfNecessary();
+
+
+            WatchKey key = service.poll();
+            if (key != null && key.isValid())
+            {
+                List<WatchEvent<?>> events = key.pollEvents();
+                workCount += events.size();
+                events.forEach(handleEvent);
+                key.reset();
+            }
+
+            long currentTime = System.currentTimeMillis();
+            if (beginTime == -1)
+            {
+                beginTime = currentTime;
+            }
+            if (currentTime - beginTime > 60000)
+            {
+                quietClose(service);
+                closed = true;
+                System.out.println("Shutting down WatchService");
+            }
+
         }
 
         return workCount;
